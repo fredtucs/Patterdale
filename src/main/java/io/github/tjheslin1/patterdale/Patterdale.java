@@ -32,6 +32,7 @@ import io.github.tjheslin1.patterdale.metrics.probe.OracleSQLProbe;
 import io.github.tjheslin1.patterdale.metrics.probe.Probe;
 import io.github.tjheslin1.patterdale.metrics.probe.TypeToProbeMapper;
 import io.prometheus.client.CollectorRegistry;
+import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,13 +72,48 @@ public class Patterdale {
     }
 
     public static void main(String[] args) {
+
+        Options options = new Options();
+        Option configApp = new Option("c", "config.file", true, "Config File");
+        configApp.setRequired(true);
+        options.addOption(configApp);
+        Option passwordFile = new Option("p", "passwords.file", true, "Passwords File");
+        passwordFile.setRequired(true);
+        options.addOption(passwordFile);
+        Option logbackFile = new Option("lg", "logback.file", true, "Logback File");
+        logbackFile.setRequired(false);
+        options.addOption(logbackFile);
+        Option statusPage = new Option("sp", "status.page", true, "Status Page");
+        statusPage.setRequired(false);
+        options.addOption(statusPage);
+
+        HelpFormatter formatter = new HelpFormatter();
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmd;
+        try {
+            cmd = parser.parse(options, args);
+        } catch (ParseException e) {
+            System.out.println(e.getMessage());
+            formatter.printHelp("Application arguments info", options);
+            System.exit(1);
+            return;
+        }
+
+        if (cmd.hasOption("config.file")) {
+            System.setProperty("config.file", cmd.getOptionValue("config.file"));
+        }
+        if (cmd.hasOption("logback.file")) {
+            System.setProperty("logback.configurationFile", cmd.getOptionValue("logback.file"));
+        }
+        if (cmd.hasOption("status.page")) {
+            System.setProperty("status.page", cmd.getOptionValue("status.page"));
+        }
+
         Logger logger = LoggerFactory.getLogger("application");
 
-        PatterdaleConfig patterdaleConfig = new ConfigUnmarshaller(logger)
-                .parseConfig(new File(System.getProperty("config.file")));
+        PatterdaleConfig patterdaleConfig = new ConfigUnmarshaller(logger).parseConfig(new File(cmd.getOptionValue("config.file")));
 
-        Passwords passwords = new PasswordsUnmarshaller(logger)
-                .parsePasswords(new File(System.getProperty("passwords.file")));
+        Passwords passwords = new PasswordsUnmarshaller(logger).parsePasswords(new File(cmd.getOptionValue("passwords.file")));
 
         RuntimeParameters runtimeParameters = patterdaleRuntimeParameters(patterdaleConfig);
 
@@ -85,8 +121,7 @@ public class Patterdale {
 
         Map<String, Future<DBConnectionPool>> futureConnections = initialDatabaseConnections(dataSourceProvider, logger, passwords, runtimeParameters);
 
-        Map<String, Probe> probesByName = runtimeParameters.probes().stream()
-                .collect(toMap(probe -> probe.name, probe -> probe));
+        Map<String, Probe> probesByName = runtimeParameters.probes().stream().collect(toMap(probe -> probe.name, probe -> probe));
 
         logger.debug("starting Patterdale!");
         new Patterdale(dataSourceProvider, runtimeParameters, futureConnections, new TypeToProbeMapper(logger), probesByName, logger)
@@ -102,10 +137,10 @@ public class Patterdale {
                 .collect(toList());
 
         long cacheDuration = Math.max(runtimeParameters.cacheDuration(), 1);
-        logger.info(format("Using database scrape cache duration of '%d' seconds.", cacheDuration));
+        logger.info("Using database scrape cache duration of {} seconds.", cacheDuration);
 
         webServer = new JettyWebServerBuilder(logger)
-                .withServer(serverWithStatisticsCollection(registry, runtimeParameters.httpPort()))
+                .withServer(serverWithStatisticsCollection(registry, runtimeParameters.httpPort(), runtimeParameters.httpHost()))
                 .registerMetricsEndpoint(
                         "/metrics",
                         new MetricsUseCase(
@@ -122,7 +157,7 @@ public class Patterdale {
 
         try {
             webServer.start();
-            logger.info("Web server started successfully at " + webServer.baseUrl());
+            logger.info("Web server started successfully at {}", webServer.baseUrl());
         } catch (Exception e) {
             logger.error("Error occurred starting Jetty Web Server.", e);
         }

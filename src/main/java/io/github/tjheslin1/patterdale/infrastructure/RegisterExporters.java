@@ -18,11 +18,17 @@
 package io.github.tjheslin1.patterdale.infrastructure;
 
 import io.github.tjheslin1.patterdale.metrics.JettyStatisticsCollector;
+import io.github.tjheslin1.patterdale.utils.Util;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.hotspot.*;
+import org.apache.commons.lang3.ObjectUtils;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.server.handler.StatisticsHandler;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 public class RegisterExporters {
 
@@ -31,9 +37,9 @@ public class RegisterExporters {
      * @param httpPort The port the Server runs on.
      * @return a Jetty Server with Prometheus' default exporters registered.
      */
-    public static Server serverWithStatisticsCollection(CollectorRegistry registry, int httpPort) {
-        Server server = new Server(httpPort);
-
+    public static Server serverWithStatisticsCollection(CollectorRegistry registry, int httpPort, String httpHost) {
+        Server server = new Server();
+        
         new StandardExports().register(registry);
         new MemoryPoolsExports().register(registry);
         new GarbageCollectorExports().register(registry);
@@ -43,8 +49,18 @@ public class RegisterExporters {
 
         HandlerCollection handlers = new HandlerCollection();
         StatisticsHandler statisticsHandler = new StatisticsHandler();
-        statisticsHandler.setServer(server);
+        statisticsHandler.setServer(server);        
         handlers.addHandler(statisticsHandler);
+
+        try {
+            InetAddress localHostLANAddress = Util.getLocalHostLANAddress();
+            ServerConnector connector = new ServerConnector(server);
+            connector.setHost(ObjectUtils.defaultIfNull(httpHost, localHostLANAddress.getHostAddress()));
+            connector.setPort(ObjectUtils.defaultIfNull(httpPort, 7001));
+            server.addConnector(connector);
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
 
         new JettyStatisticsCollector(statisticsHandler).register(registry);
         server.setHandler(handlers);

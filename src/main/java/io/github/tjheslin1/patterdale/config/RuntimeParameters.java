@@ -24,6 +24,7 @@ import java.util.List;
 
 public interface RuntimeParameters {
     int httpPort();
+    String httpHost();
     long cacheDuration();
     int probeConnectionWaitInSeconds();
     List<DatabaseDefinition> databases();

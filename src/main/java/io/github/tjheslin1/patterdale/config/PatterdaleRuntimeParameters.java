@@ -34,6 +34,7 @@ import static java.util.Arrays.asList;
 public class PatterdaleRuntimeParameters extends ValueType implements RuntimeParameters {
 
     private final int httpPort;
+    private final String httpHost;
     private final long cacheDuration;
     private final int probeConnectionWaitInSeconds;
     private final List<DatabaseDefinition> databases;
@@ -43,8 +44,9 @@ public class PatterdaleRuntimeParameters extends ValueType implements RuntimePar
     private final int maxConnectionRetries;
     private final long connectionRetryDelayInSeconds;
 
-    public PatterdaleRuntimeParameters(int httpPort, long cacheDuration, int probeConnectionWaitInSeconds, List<DatabaseDefinition> databases, int connectionPoolMaxSize, int connectionPoolMinIdle, List<Probe> probes, int maxConnectionRetries, long connectionRetryDelayInSeconds) {
+    public PatterdaleRuntimeParameters(int httpPort, String httpHost, long cacheDuration, int probeConnectionWaitInSeconds, List<DatabaseDefinition> databases, int connectionPoolMaxSize, int connectionPoolMinIdle, List<Probe> probes, int maxConnectionRetries, long connectionRetryDelayInSeconds) {
         this.httpPort = httpPort;
+        this.httpHost = httpHost;
         this.cacheDuration = cacheDuration;
         this.probeConnectionWaitInSeconds = probeConnectionWaitInSeconds;
         this.databases = databases;
@@ -61,6 +63,7 @@ public class PatterdaleRuntimeParameters extends ValueType implements RuntimePar
 
         return new PatterdaleRuntimeParameters(
                 config.httpPort,
+                config.httpHost,
                 config.cacheDuration,
                 config.probeConnectionWaitInSeconds,
                 asList(config.databases),
@@ -77,6 +80,11 @@ public class PatterdaleRuntimeParameters extends ValueType implements RuntimePar
     @Override
     public int httpPort() {
         return httpPort;
+    }
+
+    @Override
+    public String httpHost() {
+        return httpHost;
     }
 
     /**
